@@ -9,4 +9,3 @@ Project context:
 - Supports ranked store comparisons and split-basket suggestions.
 - Includes receipt upload for future price validation.
 - Built with Flutter using GetX state management and MVC architecture.
-- Backend services will be hosted on Microsoft Azure.
