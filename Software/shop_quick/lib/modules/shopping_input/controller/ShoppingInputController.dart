@@ -11,6 +11,11 @@ import '../../recommendations/controller/RecommendationController.dart';
 import '../model/ShoppingRequestModel.dart';
 
 class ShoppingInputController extends GetxController {
+  static final RegExp _ukPostcodeRegExp = RegExp(
+    r'^(GIR 0AA|[A-PR-UWYZ][A-HK-Y]?\d[A-Z\d]? ?\d[ABD-HJLNP-UW-Z]{2})$',
+    caseSensitive: false,
+  );
+
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController postcodeController = TextEditingController();
   final TextEditingController budgetController = TextEditingController();
@@ -39,13 +44,16 @@ class ShoppingInputController extends GetxController {
   }
 
   String? validatePostcode(String? value) {
-    if (useCurrentLocation.value) {
-      return null;
-    }
+    final String normalizedPostcode = _normalizePostcode(value);
 
-    if (value == null || value.trim().isEmpty) {
+    if (normalizedPostcode.isEmpty) {
       return 'Postcode is required';
     }
+
+    if (!_ukPostcodeRegExp.hasMatch(normalizedPostcode)) {
+      return 'Enter a valid UK postcode';
+    }
+
     return null;
   }
 
@@ -211,18 +219,16 @@ class ShoppingInputController extends GetxController {
 
   Future<void> getCurrentLocation() async {
     final Position position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-      ),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
 
     latitude.value = position.latitude;
     longitude.value = position.longitude;
     useCurrentLocation.value = true;
-    if(!postcodeController.text.trim().isEmpty){
+    if (postcodeController.text.trim().isNotEmpty) {
       selectedPostcode = postcodeController.text.trim();
-    }else{
-      selectedPostcode='';
+    } else {
+      selectedPostcode = '';
     }
 
     CustomSuccessSnackbar.showSuccess(
@@ -243,14 +249,6 @@ class ShoppingInputController extends GetxController {
       return;
     }
 
-    if (latitude.value == null || longitude.value == null) {
-      CustomErrorSnackbar.showError(
-        title: 'Location Required',
-        message: 'Current location is required before processing.',
-      );
-      return;
-    }
-
     addShoppingItemsFromInput();
 
     final FormState? formState = formKey.currentState;
@@ -259,12 +257,15 @@ class ShoppingInputController extends GetxController {
       return;
     }
 
-    if(!postcodeController.text.trim().isEmpty){
-      selectedPostcode = postcodeController.text.trim().toUpperCase();
-    }else{
-      selectedPostcode = '';
-
+    if (latitude.value == null || longitude.value == null) {
+      CustomErrorSnackbar.showError(
+        title: 'Location Required',
+        message: 'Current location is required before processing.',
+      );
+      return;
     }
+
+    selectedPostcode = _normalizePostcode(postcodeController.text);
 
     shoppingRequest = ShoppingRequestModel(
       postcode: selectedPostcode,
@@ -346,6 +347,18 @@ class ShoppingInputController extends GetxController {
       shoppingItemsController.clear();
       recognizedText.value = '';
     }
+  }
+
+  String _normalizePostcode(String? value) {
+    return value
+            ?.trim()
+            .toUpperCase()
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .replaceAllMapped(
+              RegExp(r'^([A-Z]{1,2}\d[A-Z\d]?)(\d[ABD-HJLNP-UW-Z]{2})$'),
+              (Match match) => '${match.group(1)} ${match.group(2)}',
+            ) ??
+        '';
   }
 
   @override
