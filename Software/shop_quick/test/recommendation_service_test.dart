@@ -21,6 +21,10 @@ class TestableRecommendationService {
 
   final FakeDatabaseService _databaseService;
   final FakeStoreLocationService _storeLocationService;
+  static const double _completenessWeight = 0.55;
+  static const double _priceWeight = 0.15;
+  static const double _distanceWeight = 0.20;
+  static const double _budgetWeight = 0.10;
 
   Future<RecommendationResultModel> getRecommendations({
     required String postcode,
@@ -94,29 +98,36 @@ class TestableRecommendationService {
       );
     }
 
-    final List<StoreTotalModel> completeMatchStores = rankedStores
-        .where(
-          (StoreTotalModel store) =>
-              store.matchedItems.length == normalizedItems.length,
-        )
-        .toList();
+    final List<StoreTotalModel> sortedStores = applyRecommendationScores(
+      rankedStores: rankedStores,
+      budget: budget,
+      requestedItemCount: normalizedItems.length,
+    )..sort((StoreTotalModel a, StoreTotalModel b) {
+        final int scoreComparison =
+            b.recommendationScore.compareTo(a.recommendationScore);
+        if (scoreComparison != 0) {
+          return scoreComparison;
+        }
 
-    final List<StoreTotalModel> sortedStores =
-        (completeMatchStores.isNotEmpty ? completeMatchStores : rankedStores)
-          ..sort((StoreTotalModel a, StoreTotalModel b) {
-            final int matchCountComparison =
-                b.matchedItems.length.compareTo(a.matchedItems.length);
-            if (matchCountComparison != 0) {
-              return matchCountComparison;
-            }
+        final int matchCountComparison =
+            b.matchedItems.length.compareTo(a.matchedItems.length);
+        if (matchCountComparison != 0) {
+          return matchCountComparison;
+        }
 
-            final int totalComparison = a.totalPrice.compareTo(b.totalPrice);
-            if (totalComparison != 0) {
-              return totalComparison;
-            }
+        final int totalComparison = a.totalPrice.compareTo(b.totalPrice);
+        if (totalComparison != 0) {
+          return totalComparison;
+        }
 
-            return a.storeName.compareTo(b.storeName);
-          });
+        final int distanceComparison = (a.distanceMiles ?? double.infinity)
+            .compareTo(b.distanceMiles ?? double.infinity);
+        if (distanceComparison != 0) {
+          return distanceComparison;
+        }
+
+        return a.storeName.compareTo(b.storeName);
+      });
 
     final StoreTotalModel cheapestStore = sortedStores.first;
     final StoreTotalModel? secondBestStore =
@@ -269,6 +280,167 @@ class TestableRecommendationService {
     return entry.loyaltyPrice ?? entry.price;
   }
 
+  List<StoreTotalModel> applyRecommendationScores({
+    required List<StoreTotalModel> rankedStores,
+    required double budget,
+    required int requestedItemCount,
+  }) {
+    if (rankedStores.isEmpty || requestedItemCount == 0) {
+      return rankedStores;
+    }
+
+    final double minTotalPrice = rankedStores
+        .map((StoreTotalModel store) => store.totalPrice)
+        .reduce((double a, double b) => a < b ? a : b);
+    final double maxTotalPrice = rankedStores
+        .map((StoreTotalModel store) => store.totalPrice)
+        .reduce((double a, double b) => a > b ? a : b);
+    final List<double> knownDistances = rankedStores
+        .map((StoreTotalModel store) => store.distanceMiles)
+        .whereType<double>()
+        .toList();
+    final double minDistance = knownDistances.isEmpty
+        ? 0
+        : knownDistances.reduce((double a, double b) => a < b ? a : b);
+    final double maxDistance = knownDistances.isEmpty
+        ? 0
+        : knownDistances.reduce((double a, double b) => a > b ? a : b);
+
+    return rankedStores.map((StoreTotalModel store) {
+      final double completenessRatio =
+          store.matchedItems.length / requestedItemCount;
+      final bool isCompleteBasket =
+          store.matchedItems.length == requestedItemCount;
+      final double completenessScore =
+          double.parse((completenessRatio * 100).toStringAsFixed(2));
+      final double priceScore = double.parse(
+        calculateLowerIsBetterScore(
+          value: store.totalPrice,
+          minValue: minTotalPrice,
+          maxValue: maxTotalPrice,
+        ).toStringAsFixed(2),
+      );
+      final double distanceScore = double.parse(
+        calculateDistanceScore(
+          distanceMiles: store.distanceMiles,
+          minDistance: minDistance,
+          maxDistance: maxDistance,
+        ).toStringAsFixed(2),
+      );
+      final double budgetScore = double.parse(
+        calculateBudgetScore(
+          totalPrice: store.totalPrice,
+          budget: budget,
+        ).toStringAsFixed(2),
+      );
+      final double recommendationScore = double.parse(
+        ((_completenessWeight * completenessScore) +
+                (_priceWeight * priceScore) +
+                (_distanceWeight * distanceScore) +
+                (_budgetWeight * budgetScore))
+            .toStringAsFixed(2),
+      );
+
+      return store.copyWith(
+        recommendationScore: recommendationScore,
+        completenessScore: completenessScore,
+        priceScore: priceScore,
+        distanceScore: distanceScore,
+        budgetScore: budgetScore,
+        recommendationReason: buildRecommendationReason(
+          store: store,
+          isCompleteBasket: isCompleteBasket,
+          budget: budget,
+          priceScore: priceScore,
+          distanceScore: distanceScore,
+        ),
+      );
+    }).toList();
+  }
+
+  double calculateLowerIsBetterScore({
+    required double value,
+    required double minValue,
+    required double maxValue,
+  }) {
+    if (maxValue <= minValue) {
+      return 100;
+    }
+
+    final double normalized = 1 -
+        ((value - minValue) / (maxValue - minValue));
+    return normalized.clamp(0.0, 1.0) * 100;
+  }
+
+  double calculateDistanceScore({
+    required double? distanceMiles,
+    required double minDistance,
+    required double maxDistance,
+  }) {
+    if (distanceMiles == null) {
+      return 35;
+    }
+
+    return calculateLowerIsBetterScore(
+      value: distanceMiles,
+      minValue: minDistance,
+      maxValue: maxDistance,
+    );
+  }
+
+  double calculateBudgetScore({
+    required double totalPrice,
+    required double budget,
+  }) {
+    if (budget <= 0) {
+      return 50;
+    }
+
+    if (totalPrice <= budget) {
+      final double headroomRatio =
+          ((budget - totalPrice) / budget).clamp(0.0, 1.0);
+      return 70 + (headroomRatio * 30);
+    }
+
+    final double overBudgetRatio =
+        ((totalPrice - budget) / budget).clamp(0.0, 1.0);
+    return (40 - (overBudgetRatio * 40)).clamp(0.0, 40.0);
+  }
+
+  String buildRecommendationReason({
+    required StoreTotalModel store,
+    required bool isCompleteBasket,
+    required double budget,
+    required double priceScore,
+    required double distanceScore,
+  }) {
+    final List<String> reasons = <String>[];
+
+    if (isCompleteBasket) {
+      reasons.add('offers a complete basket');
+    } else {
+      reasons.add(
+        'matches ${store.matchedItems.length} of ${store.missingItems.length + store.matchedItems.length} items',
+      );
+    }
+
+    if (priceScore >= 70) {
+      reasons.add('keeps the basket price competitive');
+    }
+
+    if (store.distanceMiles != null && distanceScore >= 70) {
+      reasons.add('is relatively close');
+    }
+
+    if (budget > 0) {
+      reasons.add(
+        store.totalPrice <= budget ? 'fits within budget' : 'is over budget',
+      );
+    }
+
+    return 'Recommended because it ${reasons.join(', ')}.';
+  }
+
   String normalizeText(String value) {
     return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
   }
@@ -306,6 +478,12 @@ class StoreTotalModel {
     required this.matchedItems,
     required this.matchedItemDetails,
     required this.missingItems,
+    this.recommendationScore = 0,
+    this.completenessScore = 0,
+    this.priceScore = 0,
+    this.distanceScore = 0,
+    this.budgetScore = 0,
+    this.recommendationReason = '',
   });
 
   final String storeId;
@@ -316,6 +494,46 @@ class StoreTotalModel {
   final List<String> matchedItems;
   final List<MatchedItemModel> matchedItemDetails;
   final List<String> missingItems;
+  final double recommendationScore;
+  final double completenessScore;
+  final double priceScore;
+  final double distanceScore;
+  final double budgetScore;
+  final String recommendationReason;
+
+  StoreTotalModel copyWith({
+    String? storeId,
+    String? storeName,
+    String? postcode,
+    double? distanceMiles,
+    double? totalPrice,
+    List<String>? matchedItems,
+    List<MatchedItemModel>? matchedItemDetails,
+    List<String>? missingItems,
+    double? recommendationScore,
+    double? completenessScore,
+    double? priceScore,
+    double? distanceScore,
+    double? budgetScore,
+    String? recommendationReason,
+  }) {
+    return StoreTotalModel(
+      storeId: storeId ?? this.storeId,
+      storeName: storeName ?? this.storeName,
+      postcode: postcode ?? this.postcode,
+      distanceMiles: distanceMiles ?? this.distanceMiles,
+      totalPrice: totalPrice ?? this.totalPrice,
+      matchedItems: matchedItems ?? this.matchedItems,
+      matchedItemDetails: matchedItemDetails ?? this.matchedItemDetails,
+      missingItems: missingItems ?? this.missingItems,
+      recommendationScore: recommendationScore ?? this.recommendationScore,
+      completenessScore: completenessScore ?? this.completenessScore,
+      priceScore: priceScore ?? this.priceScore,
+      distanceScore: distanceScore ?? this.distanceScore,
+      budgetScore: budgetScore ?? this.budgetScore,
+      recommendationReason: recommendationReason ?? this.recommendationReason,
+    );
+  }
 }
 
 class NearbyStoreModel {
@@ -979,5 +1197,121 @@ void main() {
         expect(result.secondBestStore, isNull);
       },
     );
+
+    test('UT16 Prefer closer store when price and completeness are similar', () async {
+      final TestableRecommendationService service = buildService(
+        locationStores: <NearbyStoreModel>[
+          store(
+            id: 1,
+            name: 'Closer Store',
+            postcode: 'BD1 1AA',
+            distanceMiles: 0.8,
+          ),
+          store(
+            id: 2,
+            name: 'Farther Store',
+            postcode: 'BD2 2BB',
+            distanceMiles: 2.8,
+          ),
+        ],
+        entries: <FakePriceEntry>[
+          priceEntry(
+            storeId: 1,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.10,
+          ),
+          priceEntry(
+            storeId: 1,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.15,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.00,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.10,
+          ),
+        ],
+      );
+
+      final RecommendationResultModel result = await service.getRecommendations(
+        postcode: 'BD1 1AA',
+        shoppingItems: <String>['milk', 'bread'],
+        budget: 10,
+      );
+
+      expect(result.cheapestStore, isNotNull);
+      expect(result.cheapestStore!.storeName, 'Closer Store');
+      expect(
+        result.cheapestStore!.distanceScore,
+        greaterThan(result.secondBestStore!.distanceScore),
+      );
+    });
+
+    test('UT17 Prefer store within budget over similarly priced over-budget store', () async {
+      final TestableRecommendationService service = buildService(
+        locationStores: <NearbyStoreModel>[
+          store(
+            id: 1,
+            name: 'Within Budget',
+            postcode: 'BD1 1AA',
+            distanceMiles: 1.5,
+          ),
+          store(
+            id: 2,
+            name: 'Over Budget',
+            postcode: 'BD2 2BB',
+            distanceMiles: 1.5,
+          ),
+        ],
+        entries: <FakePriceEntry>[
+          priceEntry(
+            storeId: 1,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 4.80,
+          ),
+          priceEntry(
+            storeId: 1,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 4.90,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 5.00,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 5.10,
+          ),
+        ],
+      );
+
+      final RecommendationResultModel result = await service.getRecommendations(
+        postcode: 'BD1 1AA',
+        shoppingItems: <String>['milk', 'bread'],
+        budget: 10,
+      );
+
+      expect(result.cheapestStore, isNotNull);
+      expect(result.cheapestStore!.storeName, 'Within Budget');
+      expect(
+        result.cheapestStore!.budgetScore,
+        greaterThan(result.secondBestStore!.budgetScore),
+      );
+    });
   });
 }

@@ -135,8 +135,6 @@ class RecommendationScreen extends GetView<RecommendationController> {
         final bool isWithinBudget = cheapestStore.totalPrice <= displayBudget;
         final double budgetDifference = displayBudget - cheapestStore.totalPrice;
         final double remainingBudget = budgetDifference > 0 ? budgetDifference : 0;
-        final double overBudgetAmount =
-            budgetDifference < 0 ? budgetDifference.abs() : 0;
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -178,6 +176,12 @@ class RecommendationScreen extends GetView<RecommendationController> {
                   matchedItems: cheapestStore.matchedItems,
                   matchedItemDetails: cheapestStore.matchedItemDetails,
                   missingItems: cheapestStore.missingItems,
+                  recommendationScore: cheapestStore.recommendationScore,
+                  completenessScore: cheapestStore.completenessScore,
+                  priceScore: cheapestStore.priceScore,
+                  distanceScore: cheapestStore.distanceScore,
+                  budgetScore: cheapestStore.budgetScore,
+                  recommendationReason: cheapestStore.recommendationReason,
                 ),
                 SizedBox(height: AppSpacing.lg.h),
                 PrimaryButton(
@@ -269,6 +273,12 @@ class _RecommendationInfoCard extends StatelessWidget {
     required this.matchedItems,
     required this.matchedItemDetails,
     required this.missingItems,
+    required this.recommendationScore,
+    required this.completenessScore,
+    required this.priceScore,
+    required this.distanceScore,
+    required this.budgetScore,
+    required this.recommendationReason,
   });
 
   final String storeName;
@@ -280,6 +290,12 @@ class _RecommendationInfoCard extends StatelessWidget {
   final List<String> matchedItems;
   final List<MatchedItemModel> matchedItemDetails;
   final List<String> missingItems;
+  final double recommendationScore;
+  final double completenessScore;
+  final double priceScore;
+  final double distanceScore;
+  final double budgetScore;
+  final String recommendationReason;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +372,56 @@ class _RecommendationInfoCard extends StatelessWidget {
                         ? AppColors.success
                         : AppColors.error,
                     fontWeight: FontWeight.w600,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 14.h),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(14.w),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomText(
+                    'Recommendation Score: ${recommendationScore.toStringAsFixed(1)}',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark,
+                  ),
+                  SizedBox(height: 6.h),
+                  CustomText(
+                    recommendationReason,
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  SizedBox(height: 10.h),
+                  Wrap(
+                    spacing: 8.w,
+                    runSpacing: 8.h,
+                    children: [
+                      _ScoreChip(
+                        label: 'Completeness',
+                        value: completenessScore,
+                      ),
+                      _ScoreChip(
+                        label: 'Price',
+                        value: priceScore,
+                      ),
+                      _ScoreChip(
+                        label: 'Distance',
+                        value: distanceScore,
+                      ),
+                      _ScoreChip(
+                        label: 'Budget',
+                        value: budgetScore,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -556,6 +622,13 @@ class _StoreRankTile extends StatelessWidget {
                   fontSize: 14,
                   color: AppColors.textSecondary,
                 ),
+                SizedBox(height: 4.h),
+                CustomText(
+                  'Score ${store.recommendationScore.toStringAsFixed(1)}',
+                  fontSize: 12,
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w700,
+                ),
                 if (store.missingItems.isNotEmpty) ...[
                   SizedBox(height: 6.h),
                   Wrap(
@@ -580,6 +653,34 @@ class _StoreRankTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ScoreChip extends StatelessWidget {
+  const _ScoreChip({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(999.r),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: CustomText(
+        '$label ${value.toStringAsFixed(0)}',
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textSecondary,
       ),
     );
   }

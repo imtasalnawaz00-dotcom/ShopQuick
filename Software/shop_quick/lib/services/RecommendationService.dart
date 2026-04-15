@@ -9,6 +9,13 @@ class RecommendationService {
   static final DatabaseService _databaseService = DatabaseService.instance;
   static const StoreLocationService _storeLocationService =
       StoreLocationService();
+  // Completeness stays dominant so partial baskets do not beat fuller baskets.
+  // Price still matters, but distance now has enough weight to influence the
+  // final rank instead of acting only as a candidate filter.
+  static const double _completenessWeight = 0.55;
+  static const double _priceWeight = 0.15;
+  static const double _distanceWeight = 0.20;
+  static const double _budgetWeight = 0.10;
 
   Future<RecommendationResultModel> getRecommendations({
     required String postcode,
@@ -83,28 +90,36 @@ class RecommendationService {
       );
     }
 
-    final List<StoreTotalModel> completeMatchStores = rankedStores
-        .where(
-          (StoreTotalModel store) => store.matchedItems.length == normalizedItems.length,
-        )
-        .toList();
+    final List<StoreTotalModel> sortedStores = _applyRecommendationScores(
+      rankedStores: rankedStores,
+      budget: budget,
+      requestedItemCount: normalizedItems.length,
+    )..sort((StoreTotalModel a, StoreTotalModel b) {
+        final int scoreComparison =
+            b.recommendationScore.compareTo(a.recommendationScore);
+        if (scoreComparison != 0) {
+          return scoreComparison;
+        }
 
-    final List<StoreTotalModel> sortedStores =
-        (completeMatchStores.isNotEmpty ? completeMatchStores : rankedStores)
-          ..sort((StoreTotalModel a, StoreTotalModel b) {
-            final int matchCountComparison =
-                b.matchedItems.length.compareTo(a.matchedItems.length);
-            if (matchCountComparison != 0) {
-              return matchCountComparison;
-            }
+        final int matchCountComparison =
+            b.matchedItems.length.compareTo(a.matchedItems.length);
+        if (matchCountComparison != 0) {
+          return matchCountComparison;
+        }
 
-            final int totalComparison = a.totalPrice.compareTo(b.totalPrice);
-            if (totalComparison != 0) {
-              return totalComparison;
-            }
+        final int totalComparison = a.totalPrice.compareTo(b.totalPrice);
+        if (totalComparison != 0) {
+          return totalComparison;
+        }
 
-            return a.storeName.compareTo(b.storeName);
-          });
+        final int distanceComparison = (a.distanceMiles ?? double.infinity)
+            .compareTo(b.distanceMiles ?? double.infinity);
+        if (distanceComparison != 0) {
+          return distanceComparison;
+        }
+
+        return a.storeName.compareTo(b.storeName);
+      });
 
     final StoreTotalModel cheapestStore = sortedStores.first;
     final StoreTotalModel? secondBestStore = sortedStores.length > 1
@@ -295,6 +310,166 @@ class RecommendationService {
     final num? loyaltyPrice = entry['loyalty_price'] as num?;
     final num? standardPrice = entry['price'] as num?;
     return (loyaltyPrice ?? standardPrice ?? 0).toDouble();
+  }
+
+  List<StoreTotalModel> _applyRecommendationScores({
+    required List<StoreTotalModel> rankedStores,
+    required double budget,
+    required int requestedItemCount,
+  }) {
+    if (rankedStores.isEmpty || requestedItemCount == 0) {
+      return rankedStores;
+    }
+
+    final double minTotalPrice = rankedStores
+        .map((StoreTotalModel store) => store.totalPrice)
+        .reduce((double a, double b) => a < b ? a : b);
+    final double maxTotalPrice = rankedStores
+        .map((StoreTotalModel store) => store.totalPrice)
+        .reduce((double a, double b) => a > b ? a : b);
+    final List<double> knownDistances = rankedStores
+        .map((StoreTotalModel store) => store.distanceMiles)
+        .whereType<double>()
+        .toList();
+    final double minDistance = knownDistances.isEmpty
+        ? 0
+        : knownDistances.reduce((double a, double b) => a < b ? a : b);
+    final double maxDistance = knownDistances.isEmpty
+        ? 0
+        : knownDistances.reduce((double a, double b) => a > b ? a : b);
+
+    return rankedStores.map((StoreTotalModel store) {
+      final double completenessRatio =
+          store.matchedItems.length / requestedItemCount;
+      final bool isCompleteBasket =
+          store.matchedItems.length == requestedItemCount;
+      final double completenessScore =
+          double.parse((completenessRatio * 100).toStringAsFixed(2));
+      final double priceScore = double.parse(
+        _calculateLowerIsBetterScore(
+          value: store.totalPrice,
+          minValue: minTotalPrice,
+          maxValue: maxTotalPrice,
+        ).toStringAsFixed(2),
+      );
+      final double distanceScore = double.parse(
+        _calculateDistanceScore(
+          distanceMiles: store.distanceMiles,
+          minDistance: minDistance,
+          maxDistance: maxDistance,
+        ).toStringAsFixed(2),
+      );
+      final double budgetScore = double.parse(
+        _calculateBudgetScore(
+          totalPrice: store.totalPrice,
+          budget: budget,
+        ).toStringAsFixed(2),
+      );
+      final double recommendationScore = double.parse(
+        ((_completenessWeight * completenessScore) +
+                (_priceWeight * priceScore) +
+                (_distanceWeight * distanceScore) +
+                (_budgetWeight * budgetScore))
+            .toStringAsFixed(2),
+      );
+
+      return store.copyWith(
+        recommendationScore: recommendationScore,
+        completenessScore: completenessScore,
+        priceScore: priceScore,
+        distanceScore: distanceScore,
+        budgetScore: budgetScore,
+        recommendationReason: _buildRecommendationReason(
+          store: store,
+          isCompleteBasket: isCompleteBasket,
+          budget: budget,
+          priceScore: priceScore,
+          distanceScore: distanceScore,
+        ),
+      );
+    }).toList();
+  }
+
+  double _calculateLowerIsBetterScore({
+    required double value,
+    required double minValue,
+    required double maxValue,
+  }) {
+    if (maxValue <= minValue) {
+      return 100;
+    }
+
+    final double normalized = 1 - ((value - minValue) / (maxValue - minValue));
+    return normalized.clamp(0.0, 1.0) * 100;
+  }
+
+  double _calculateDistanceScore({
+    required double? distanceMiles,
+    required double minDistance,
+    required double maxDistance,
+  }) {
+    if (distanceMiles == null) {
+      return 35;
+    }
+
+    return _calculateLowerIsBetterScore(
+      value: distanceMiles,
+      minValue: minDistance,
+      maxValue: maxDistance,
+    );
+  }
+
+  double _calculateBudgetScore({
+    required double totalPrice,
+    required double budget,
+  }) {
+    if (budget <= 0) {
+      return 50;
+    }
+
+    if (totalPrice <= budget) {
+      final double headroomRatio =
+          ((budget - totalPrice) / budget).clamp(0.0, 1.0);
+      return 70 + (headroomRatio * 30);
+    }
+
+    final double overBudgetRatio =
+        ((totalPrice - budget) / budget).clamp(0.0, 1.0);
+    return (40 - (overBudgetRatio * 40)).clamp(0.0, 40.0);
+  }
+
+  String _buildRecommendationReason({
+    required StoreTotalModel store,
+    required bool isCompleteBasket,
+    required double budget,
+    required double priceScore,
+    required double distanceScore,
+  }) {
+    final List<String> reasons = <String>[];
+
+    if (isCompleteBasket) {
+      reasons.add('offers a complete basket');
+    } else {
+      reasons.add(
+        'matches ${store.matchedItems.length} of ${store.missingItems.length + store.matchedItems.length} items',
+      );
+    }
+
+    if (priceScore >= 70) {
+      reasons.add('keeps the basket price competitive');
+    }
+
+    if (store.distanceMiles != null && distanceScore >= 70) {
+      reasons.add('is relatively close');
+    }
+
+    if (budget > 0) {
+      reasons.add(
+        store.totalPrice <= budget ? 'fits within budget' : 'is over budget',
+      );
+    }
+
+    return 'Recommended because it ${reasons.join(', ')}.';
   }
 
   String _normalizeText(String value) {
