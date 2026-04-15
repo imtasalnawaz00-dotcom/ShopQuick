@@ -1313,5 +1313,249 @@ void main() {
         greaterThan(result.secondBestStore!.budgetScore),
       );
     });
+
+    test('UT18 Same completeness and same distance but lower price wins', () async {
+      final TestableRecommendationService service = buildService(
+        locationStores: <NearbyStoreModel>[
+          store(
+            id: 1,
+            name: 'Lower Price Store',
+            postcode: 'BD1 1AA',
+            distanceMiles: 1.2,
+          ),
+          store(
+            id: 2,
+            name: 'Higher Price Store',
+            postcode: 'BD2 2BB',
+            distanceMiles: 1.2,
+          ),
+        ],
+        entries: <FakePriceEntry>[
+          priceEntry(
+            storeId: 1,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.80,
+          ),
+          priceEntry(
+            storeId: 1,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.70,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 2.10,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 2.00,
+          ),
+        ],
+      );
+
+      final RecommendationResultModel result = await service.getRecommendations(
+        postcode: 'BD1 1AA',
+        shoppingItems: <String>['milk', 'bread'],
+        budget: 10,
+      );
+
+      expect(result.cheapestStore, isNotNull);
+      expect(result.secondBestStore, isNotNull);
+      expect(result.cheapestStore!.storeName, 'Lower Price Store');
+      expect(result.cheapestStore!.totalPrice, 3.50);
+      expect(
+        result.cheapestStore!.priceScore,
+        greaterThan(result.secondBestStore!.priceScore),
+      );
+    });
+
+    test('UT19 Same completeness and same price but closer store wins', () async {
+      final TestableRecommendationService service = buildService(
+        locationStores: <NearbyStoreModel>[
+          store(
+            id: 1,
+            name: 'Closer Store',
+            postcode: 'BD1 1AA',
+            distanceMiles: 0.7,
+          ),
+          store(
+            id: 2,
+            name: 'Farther Store',
+            postcode: 'BD2 2BB',
+            distanceMiles: 2.4,
+          ),
+        ],
+        entries: <FakePriceEntry>[
+          priceEntry(
+            storeId: 1,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.50,
+          ),
+          priceEntry(
+            storeId: 1,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.50,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.50,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.50,
+          ),
+        ],
+      );
+
+      final RecommendationResultModel result = await service.getRecommendations(
+        postcode: 'BD1 1AA',
+        shoppingItems: <String>['milk', 'bread'],
+        budget: 10,
+      );
+
+      expect(result.cheapestStore, isNotNull);
+      expect(result.secondBestStore, isNotNull);
+      expect(result.cheapestStore!.storeName, 'Closer Store');
+      expect(result.cheapestStore!.totalPrice, 3.00);
+      expect(result.secondBestStore!.totalPrice, 3.00);
+      expect(
+        result.cheapestStore!.distanceScore,
+        greaterThan(result.secondBestStore!.distanceScore),
+      );
+    });
+
+    test('UT20 No-budget case applies neutral budget scoring', () async {
+      final TestableRecommendationService service = buildService(
+        locationStores: <NearbyStoreModel>[
+          store(
+            id: 1,
+            name: 'Alpha',
+            postcode: 'BD1 1AA',
+            distanceMiles: 1.0,
+          ),
+          store(
+            id: 2,
+            name: 'Bravo',
+            postcode: 'BD2 2BB',
+            distanceMiles: 2.0,
+          ),
+        ],
+        entries: <FakePriceEntry>[
+          priceEntry(
+            storeId: 1,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 2.00,
+          ),
+          priceEntry(
+            storeId: 1,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.50,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.80,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.70,
+          ),
+        ],
+      );
+
+      final RecommendationResultModel result = await service.getRecommendations(
+        postcode: 'BD1 1AA',
+        shoppingItems: <String>['milk', 'bread'],
+        budget: 0,
+      );
+
+      expect(result.cheapestStore, isNotNull);
+      expect(result.secondBestStore, isNotNull);
+      expect(result.cheapestStore!.budgetScore, 50);
+      expect(result.secondBestStore!.budgetScore, 50);
+      expect(result.cheapestStore!.recommendationScore, greaterThan(0));
+    });
+
+    test('UT21 Recommendation reason and score breakdown are generated correctly', () async {
+      final TestableRecommendationService service = buildService(
+        locationStores: <NearbyStoreModel>[
+          store(
+            id: 1,
+            name: 'Best Store',
+            postcode: 'BD1 1AA',
+            distanceMiles: 0.9,
+          ),
+          store(
+            id: 2,
+            name: 'Other Store',
+            postcode: 'BD2 2BB',
+            distanceMiles: 2.5,
+          ),
+        ],
+        entries: <FakePriceEntry>[
+          priceEntry(
+            storeId: 1,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.40,
+          ),
+          priceEntry(
+            storeId: 1,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.30,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Milk',
+            normalizedName: 'milk',
+            price: 1.80,
+          ),
+          priceEntry(
+            storeId: 2,
+            productName: 'Bread',
+            normalizedName: 'bread',
+            price: 1.70,
+          ),
+        ],
+      );
+
+      final RecommendationResultModel result = await service.getRecommendations(
+        postcode: 'BD1 1AA',
+        shoppingItems: <String>['milk', 'bread'],
+        budget: 10,
+      );
+
+      expect(result.cheapestStore, isNotNull);
+
+      final StoreTotalModel chosenStore = result.cheapestStore!;
+
+      expect(chosenStore.recommendationScore, greaterThan(0));
+      expect(chosenStore.completenessScore, inInclusiveRange(0, 100));
+      expect(chosenStore.priceScore, inInclusiveRange(0, 100));
+      expect(chosenStore.distanceScore, inInclusiveRange(0, 100));
+      expect(chosenStore.budgetScore, inInclusiveRange(0, 100));
+      expect(chosenStore.recommendationReason, isNotEmpty);
+      expect(
+        chosenStore.recommendationReason,
+        contains('Recommended based on multi-criteria'),
+      );
+    });
   });
 }
