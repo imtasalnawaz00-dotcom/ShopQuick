@@ -438,7 +438,7 @@ class TestableRecommendationService {
       );
     }
 
-    return 'Recommended because it ${reasons.join(', ')}.';
+    return 'Recommended based on multi-criteria because it ${reasons.join(', ')}.';
   }
 
   String normalizeText(String value) {

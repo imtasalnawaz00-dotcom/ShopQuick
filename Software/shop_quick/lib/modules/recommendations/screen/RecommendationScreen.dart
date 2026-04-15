@@ -609,7 +609,7 @@ class _StoreRankTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999.r),
                     ),
                     child: CustomText(
-                      'Best Price',
+                      'Top Recommendation',
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryDark,
