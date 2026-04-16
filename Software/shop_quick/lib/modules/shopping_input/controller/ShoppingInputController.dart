@@ -7,15 +7,11 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../../constants/Routes.dart';
 import '../../../helper/AppSnackbar.dart';
+import '../../../helper/postcode_validator.dart';
 import '../../recommendations/controller/RecommendationController.dart';
 import '../model/ShoppingRequestModel.dart';
 
 class ShoppingInputController extends GetxController {
-  static final RegExp _ukPostcodeRegExp = RegExp(
-    r'^(GIR 0AA|[A-PR-UWYZ][A-HK-Y]?\d[A-Z\d]? ?\d[ABD-HJLNP-UW-Z]{2})$',
-    caseSensitive: false,
-  );
-
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController postcodeController = TextEditingController();
   final TextEditingController budgetController = TextEditingController();
@@ -44,17 +40,7 @@ class ShoppingInputController extends GetxController {
   }
 
   String? validatePostcode(String? value) {
-    final String normalizedPostcode = _normalizePostcode(value);
-
-    if (normalizedPostcode.isEmpty) {
-      return 'Postcode is required';
-    }
-
-    if (!_ukPostcodeRegExp.hasMatch(normalizedPostcode)) {
-      return 'Enter a valid UK postcode';
-    }
-
-    return null;
+    return PostcodeValidator.validate(value);
   }
 
   String? validateBudget(String? value) {
@@ -265,7 +251,7 @@ class ShoppingInputController extends GetxController {
       return;
     }
 
-    selectedPostcode = _normalizePostcode(postcodeController.text);
+    selectedPostcode = PostcodeValidator.normalize(postcodeController.text);
 
     shoppingRequest = ShoppingRequestModel(
       postcode: selectedPostcode,
@@ -347,18 +333,6 @@ class ShoppingInputController extends GetxController {
       shoppingItemsController.clear();
       recognizedText.value = '';
     }
-  }
-
-  String _normalizePostcode(String? value) {
-    return value
-            ?.trim()
-            .toUpperCase()
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .replaceAllMapped(
-              RegExp(r'^([A-Z]{1,2}\d[A-Z\d]?)(\d[ABD-HJLNP-UW-Z]{2})$'),
-              (Match match) => '${match.group(1)} ${match.group(2)}',
-            ) ??
-        '';
   }
 
   @override

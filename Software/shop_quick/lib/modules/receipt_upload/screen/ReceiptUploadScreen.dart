@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 
@@ -8,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_decorations.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../helper/upper_case_text_formatter.dart';
 import '../../../widgets/CustomText.dart';
 import '../../../widgets/CustomTextField.dart';
 import '../../../widgets/PrimaryButton.dart';
@@ -115,7 +117,14 @@ class ReceiptUploadScreen extends GetView<ReceiptUploadController> {
                           labelText: 'Postcode',
                           hintText: 'Postcode will appear here',
                           readOnly: false,
+                          maxLength: 8,
                           textCapitalization: TextCapitalization.characters,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z0-9 ]'),
+                            ),
+                            UpperCaseTextFormatter(),
+                          ],
                           onChanged: controller.onPostcodeChanged,
                           prefixIcon: Icon(
                             Icons.place_outlined,

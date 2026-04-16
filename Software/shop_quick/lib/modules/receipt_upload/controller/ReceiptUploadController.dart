@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../my_receipts/controller/MyReceiptsController.dart';
 import '../../../helper/AppSnackbar.dart';
+import '../../../helper/postcode_validator.dart';
 import '../../../services/CurrentLocationService.dart';
 import '../../../services/DatabaseService.dart';
 import '../../../services/ReceiptParserService.dart';
@@ -173,6 +174,21 @@ class ReceiptUploadController extends GetxController {
       return false;
     }
 
+    final String normalizedPostcode = PostcodeValidator.normalize(
+      postcodeController.text,
+    );
+
+    if (!PostcodeValidator.isValid(normalizedPostcode)) {
+      CustomErrorSnackbar.showError(
+        title: 'Invalid Postcode',
+        message: 'Enter a valid UK postcode',
+      );
+      return false;
+    }
+
+    postcode.value = normalizedPostcode;
+    postcodeController.text = normalizedPostcode;
+
     if (latitudeController.text.trim().isEmpty ||
         longitudeController.text.trim().isEmpty ||
         latitude.value == null ||
@@ -188,7 +204,7 @@ class ReceiptUploadController extends GetxController {
   }
 
   void onPostcodeChanged(String value) {
-    postcode.value = value.trim().toUpperCase();
+    postcode.value = PostcodeValidator.normalize(value);
   }
 
   Future<void> processSelectedImage() async {
@@ -443,7 +459,7 @@ class ReceiptUploadController extends GetxController {
       rawText: recognizedText.value,
       imagePath: imageFile?.path,
       storeName: parsed?.storeName,
-      postcode: postcodeController.text.trim().toUpperCase(),
+      postcode: PostcodeValidator.normalize(postcodeController.text),
       latitude: latitude.value,
       longitude: longitude.value,
     );
