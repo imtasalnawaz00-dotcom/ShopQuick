@@ -507,11 +507,11 @@ void main() {
       await service.initialize();
     });
 
-    test('UT51 Create database successfully', () async {
+    test('UT57 Create database successfully', () async {
       expect(service.isInitialized, isTrue);
     });
 
-    test('UT52 Create required tables on first initialisation', () async {
+    test('UT58 Create required tables on first initialisation', () async {
       expect(
         service.tables,
         containsAll(<String>[
@@ -524,7 +524,7 @@ void main() {
       );
     });
 
-    test('UT53 Seed mock data on first launch', () async {
+    test('UT59 Seed mock data on first launch', () async {
       final List<Map<String, Object?>> stores = await service.fetchStores();
       final List<Map<String, Object?>> products = await service.fetchProducts();
       final List<Map<String, Object?>> prices = await service.fetchPriceEntries();
@@ -534,7 +534,7 @@ void main() {
       expect(prices, isNotEmpty);
     });
 
-    test('UT54 Avoid duplicate seeding on repeated initialisation', () async {
+    test('UT60 Avoid duplicate seeding on repeated initialisation', () async {
       final int initialStoreCount = (await service.fetchStores()).length;
       final int initialProductCount = (await service.fetchProducts()).length;
       final int initialPriceCount = (await service.fetchPriceEntries()).length;
@@ -547,7 +547,7 @@ void main() {
       expect((await service.fetchPriceEntries()).length, initialPriceCount);
     });
 
-    test('UT55 Insert store record correctly', () async {
+    test('UT61 Insert store record correctly', () async {
       final int id = await service.insertStore(<String, Object?>{
         'name': 'New Store',
         'postcode': 'BD10 1AA',
@@ -562,7 +562,7 @@ void main() {
       expect(stored!['name'], 'New Store');
     });
 
-    test('UT56 Retrieve stored stores correctly', () async {
+    test('UT62 Retrieve stored stores correctly', () async {
       await service.insertStore(<String, Object?>{
         'name': 'Retrieve Store',
         'postcode': 'BD11 2BB',
@@ -580,7 +580,7 @@ void main() {
       );
     });
 
-    test('UT57 Insert product record correctly', () async {
+    test('UT63 Insert product record correctly', () async {
       final int id = await service.insertProduct(<String, Object?>{
         'name': 'Orange Juice 1L',
         'normalized_name': 'orange juice',
@@ -593,7 +593,7 @@ void main() {
       expect(product!['normalized_name'], 'orange juice');
     });
 
-    test('UT58 Retrieve stored products correctly', () async {
+    test('UT64 Retrieve stored products correctly', () async {
       await service.insertProduct(<String, Object?>{
         'name': 'Pasta 500g',
         'normalized_name': 'pasta',
@@ -609,7 +609,7 @@ void main() {
       );
     });
 
-    test('UT59 Insert price entry correctly', () async {
+    test('UT65 Insert price entry correctly', () async {
       final int storeId = await service.insertStore(<String, Object?>{
         'name': 'Price Store',
         'postcode': 'BD1 9ZZ',
@@ -642,7 +642,7 @@ void main() {
       expect(prices.first['price'], 3.49);
     });
 
-    test('UT60 Retrieve price entries correctly', () async {
+    test('UT66 Retrieve price entries correctly', () async {
       final int storeId = await service.insertStore(<String, Object?>{
         'name': 'Query Store',
         'postcode': 'BD1 3CC',
@@ -677,7 +677,7 @@ void main() {
       expect(byProduct.first['store_id'], storeId);
     });
 
-    test('UT61 Insert uploaded receipt correctly', () async {
+    test('UT67 Insert uploaded receipt correctly', () async {
       final ReceiptSaveResult result = await service.saveReceiptItems(
         items: const <ReceiptItemModel>[
           ReceiptItemModel(itemName: 'Milk', price: 1.50),
@@ -699,7 +699,7 @@ void main() {
       expect(receipts, hasLength(1));
     });
 
-    test('UT62 Retrieve uploaded receipts correctly', () async {
+    test('UT68 Retrieve uploaded receipts correctly', () async {
       await service.saveReceiptItems(
         items: const <ReceiptItemModel>[
           ReceiptItemModel(itemName: 'Milk', price: 1.50),
@@ -718,7 +718,7 @@ void main() {
       expect(receipts.first.storeName, 'Aldi');
     });
 
-    test('UT63 Return empty result safely when queried data does not exist', () async {
+    test('UT69 Return empty result safely when queried data does not exist', () async {
       final Map<String, Object?>? store = await service.fetchStoreById(99999);
       final Map<String, Object?>? product = await service.fetchProductById(99999);
       final List<Map<String, Object?>> prices = await service.fetchPriceEntries(
@@ -740,7 +740,7 @@ void main() {
       expect(items, isEmpty);
     });
 
-    test('UT64 Preserve inserted values accurately', () async {
+    test('UT70 Preserve inserted values accurately', () async {
       final int storeId = await service.insertStore(<String, Object?>{
         'name': 'Exact Store',
         'postcode': 'BD4 4DD',
@@ -758,7 +758,7 @@ void main() {
       expect(stored['distance_miles'], 2.3);
     });
 
-    test('UT65 Handle repeated reads without state corruption', () async {
+    test('UT71 Handle repeated reads without state corruption', () async {
       final List<Map<String, Object?>> firstRead = await service.fetchStores();
       final List<Map<String, Object?>> secondRead = await service.fetchStores();
       final List<Map<String, Object?>> thirdRead = await service.fetchStores();
@@ -769,7 +769,7 @@ void main() {
       expect(thirdRead.first['name'], firstRead.first['name']);
     });
 
-    test('UT66 Handle repeated inserts correctly', () async {
+    test('UT72 Handle repeated inserts correctly', () async {
       await service.insertStore(<String, Object?>{
         'name': 'Repeat 1',
         'postcode': 'BD1 1AB',
@@ -799,7 +799,7 @@ void main() {
       );
     });
 
-    test('UT67 Maintain relational consistency between stored entities', () async {
+    test('UT73 Maintain relational consistency between stored entities', () async {
       final int storeId = await service.insertStore(<String, Object?>{
         'name': 'Linked Store',
         'postcode': 'BD6 6FF',
@@ -836,7 +836,7 @@ void main() {
       expect(prices.first['product_id'], productId);
     });
 
-    test('UT68 Support recommendation queries using seeded data', () async {
+    test('UT74 Support recommendation queries using seeded data', () async {
       final int count = await service.recommendationDataCount(
         normalizedProductNames: <String>['milk', 'bread'],
       );

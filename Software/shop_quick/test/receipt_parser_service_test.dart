@@ -7,7 +7,7 @@ void main() {
   group('ReceiptParserService', () {
     const ReceiptParserService service = ReceiptParserService();
 
-    test('UT16 Clean raw receipt text correctly', () {
+    test('UT22 Clean raw receipt text correctly', () {
       const String rawText =
           '  Tesco  \r\n\tMilk\t2.50\r\n\r\nBread   £1.20  \r\n  ';
 
@@ -19,7 +19,7 @@ void main() {
       );
     });
 
-    test('UT17 Extract store name from valid header line', () {
+    test('UT23 Extract store name from valid header line', () {
       const String rawText = '''
 TESCO EXTRA
 DATE 12/04/2026
@@ -32,7 +32,7 @@ TOTAL 2.50
       expect(result.storeName, 'TESCO EXTRA');
     });
 
-    test('UT18 Ignore metadata lines when extracting store name', () {
+    test('UT24 Ignore metadata lines when extracting store name', () {
       const String rawText = '''
 DATE 12/04/2026
 TIME 14:22
@@ -48,7 +48,7 @@ TOTAL 2.50
       expect(result.storeName, 'ALDI');
     });
 
-    test('UT19 Ignore address-like lines when extracting store name', () {
+    test('UT25 Ignore address-like lines when extracting store name', () {
       const String rawText = '''
 1234 HIGH STREET
 BD1 1AA
@@ -62,7 +62,7 @@ TOTAL 2.50
       expect(result.storeName, 'LIDL');
     });
 
-    test('UT20 Return null store name when no suitable header exists', () {
+    test('UT26 Return null store name when no suitable header exists', () {
       const String rawText = '''
 DATE 12/04/2026
 TIME 14:22
@@ -77,7 +77,7 @@ VAT 0.50
       expect(result.storeName, isNull);
     });
 
-    test('UT21 Extract subtotal from labeled line', () {
+    test('UT27 Extract subtotal from labeled line', () {
       const String rawText = '''
 TESCO
 MILK 10.00
@@ -91,7 +91,7 @@ TOTAL 12.50
       expect(result.subtotal, 12.50);
     });
 
-    test('UT22 Extract tax from labeled line', () {
+    test('UT28 Extract tax from labeled line', () {
       const String rawText = '''
 TESCO
 ITEM 10.00
@@ -104,7 +104,7 @@ TOTAL 11.20
       expect(result.tax, 1.20);
     });
 
-    test('UT23 Extract total from labeled line', () {
+    test('UT29 Extract total from labeled line', () {
       const String rawText = '''
 TESCO
 MILK 12.00
@@ -116,7 +116,7 @@ TOTAL 13.70
       expect(result.total, 13.70);
     });
 
-    test('UT24 Extract labeled amount from next line when value is not on same line', () {
+    test('UT30 Extract labeled amount from next line when value is not on same line', () {
       const String rawText = '''
 TESCO
 MILK 5.00
@@ -129,7 +129,7 @@ TOTAL
       expect(result.total, 13.70);
     });
 
-    test('UT25 Prevent subtotal from being treated as total', () {
+    test('UT31 Prevent subtotal from being treated as total', () {
       const String rawText = '''
 TESCO
 MILK 10.00
@@ -143,7 +143,7 @@ TOTAL 13.70
       expect(result.total, 13.70);
     });
 
-    test('UT26 Extract inline item and price from same line', () {
+    test('UT32 Extract inline item and price from same line', () {
       const String rawText = '''
 TESCO
 Milk 2.50
@@ -157,7 +157,7 @@ TOTAL 2.50
       expect(result.items.first.price, 2.50);
     });
 
-    test('UT27 Pair item line with separate price line', () {
+    test('UT33 Pair item line with separate price line', () {
       const String rawText = '''
 TESCO
 Milk
@@ -172,7 +172,7 @@ TOTAL 2.50
       expect(result.items.first.price, 2.50);
     });
 
-    test('UT28 Ignore totals lines during item extraction', () {
+    test('UT34 Ignore totals lines during item extraction', () {
       const String rawText = '''
 TESCO
 TOTAL 15.00
@@ -189,7 +189,7 @@ Milk 2.50
       expect(result.items.first.price, 2.50);
     });
 
-    test('UT29 Ignore metadata lines during item extraction', () {
+    test('UT35 Ignore metadata lines during item extraction', () {
       const String rawText = '''
 TESCO
 DATE 12/04/2026
@@ -206,7 +206,7 @@ Milk 2.50
       expect(result.items.first.price, 2.50);
     });
 
-    test('UT30 Ignore store name line during item extraction', () {
+    test('UT36 Ignore store name line during item extraction', () {
       const String rawText = '''
 TESCO
 TESCO
@@ -221,7 +221,7 @@ TOTAL 2.50
       expect(result.items.first.itemName, 'Milk');
     });
 
-    test('UT31 Remove duplicate items with same name and price', () {
+    test('UT37 Remove duplicate items with same name and price', () {
       const String rawText = '''
 TESCO
 Milk 2.50
@@ -239,7 +239,7 @@ TOTAL 6.20
       );
     });
 
-    test('UT32 Keep different items with same name but different price as separate entries', () {
+    test('UT38 Keep different items with same name but different price as separate entries', () {
       const String rawText = '''
 TESCO
 Milk 2.50
@@ -256,7 +256,7 @@ TOTAL 5.30
       expect(result.items[1].price, 2.80);
     });
 
-    test('UT33 Parse decimal values with comma separator', () {
+    test('UT39 Parse decimal values with comma separator', () {
       const String rawText = '''
 TESCO
 Milk 2,50
@@ -272,7 +272,7 @@ VAT 0,20
       expect(result.tax, 0.20);
     });
 
-    test('UT34 Return structured result even when receipt contains incomplete data', () {
+    test('UT40 Return structured result even when receipt contains incomplete data', () {
       const String rawText = '''
 TESCO
 Milk 2.50
@@ -289,7 +289,7 @@ Bread 1.20
       expect(result.rawText, 'TESCO\nMilk 2.50\nBread 1.20');
     });
 
-    test('UT35 Return empty item list when no valid items exist', () {
+    test('UT41 Return empty item list when no valid items exist', () {
       const String rawText = '''
 DATE 12/04/2026
 TIME 14:22

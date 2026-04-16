@@ -146,7 +146,7 @@ void main() {
   group('StoreLocationService', () {
     const StoreLocationService realService = StoreLocationService();
 
-    test('UT36 Return zero distance for identical coordinates', () {
+    test('UT42 Return zero distance for identical coordinates', () {
       final double distance = realService.calculateDistanceMiles(
         startLatitude: 53.8008,
         startLongitude: -1.5491,
@@ -157,7 +157,7 @@ void main() {
       expect(distance, closeTo(0, 0.0001));
     });
 
-    test('UT37 Calculate positive distance for different coordinates', () {
+    test('UT43 Calculate positive distance for different coordinates', () {
       final double distance = realService.calculateDistanceMiles(
         startLatitude: 53.8008,
         startLongitude: -1.5491,
@@ -168,7 +168,7 @@ void main() {
       expect(distance, greaterThan(0));
     });
 
-    test('UT38 Return nearby stores within max distance', () async {
+    test('UT44 Return nearby stores within max distance', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -212,7 +212,7 @@ void main() {
       );
     });
 
-    test('UT39 Exclude stores outside max distance', () async {
+    test('UT45 Exclude stores outside max distance', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -242,7 +242,7 @@ void main() {
       expect(result.first.name, 'Close');
     });
 
-    test('UT40 Sort nearby stores by shortest distance first', () async {
+    test('UT46 Sort nearby stores by shortest distance first', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -281,7 +281,7 @@ void main() {
       );
     });
 
-    test('UT41 Exclude stores with zero latitude or longitude', () async {
+    test('UT47 Exclude stores with zero latitude or longitude', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -318,7 +318,7 @@ void main() {
       expect(result.first.name, 'Valid');
     });
 
-    test('UT42 Use location-based result when nearby stores exist', () async {
+    test('UT48 Use location-based result when nearby stores exist', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -350,7 +350,7 @@ void main() {
       expect(result.first.distanceMiles, isNotNull);
     });
 
-    test('UT43 Use postcode fallback when no nearby stores are found from coordinates', () async {
+    test('UT49 Use postcode fallback when no nearby stores are found from coordinates', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -381,7 +381,7 @@ void main() {
       expect(result.first.name, 'Bradford Match');
     });
 
-    test('UT44 Match stores by outward postcode code', () async {
+    test('UT50 Match stores by outward postcode code', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -419,7 +419,7 @@ void main() {
       );
     });
 
-    test('UT45 Match stores by area code when outward code has no match', () async {
+    test('UT51 Match stores by area code when outward code has no match', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -457,7 +457,7 @@ void main() {
       );
     });
 
-    test('UT46 Return all stores when postcode fallback finds no outward or area match', () async {
+    test('UT52 Return all stores when postcode fallback finds no outward or area match', () async {
       final List<NearbyStoreModel> stores = <NearbyStoreModel>[
         store(
           id: 1,
@@ -486,7 +486,7 @@ void main() {
       expect(result.map((NearbyStoreModel store) => store.name), containsAll(<String>['Bradford', 'Leeds']));
     });
 
-    test('UT47 Return all stores when postcode is empty during fallback', () async {
+    test('UT53 Return all stores when postcode is empty during fallback', () async {
       final List<NearbyStoreModel> stores = <NearbyStoreModel>[
         store(
           id: 1,
@@ -515,7 +515,7 @@ void main() {
       expect(result.map((NearbyStoreModel store) => store.name), containsAll(<String>['Bradford', 'Leeds']));
     });
 
-    test('UT48 Normalize postcode before comparison', () async {
+    test('UT54 Normalize postcode before comparison', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -536,7 +536,7 @@ void main() {
       expect(result.first.name, 'Match');
     });
 
-    test('UT49 Extract outward-code-based match correctly for standard UK postcode format', () async {
+    test('UT55 Extract outward-code-based match correctly for standard UK postcode format', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
@@ -564,7 +564,7 @@ void main() {
       expect(result.first.name, 'BD7 Match');
     });
 
-    test('UT50 Preserve computed distance in returned nearby store model', () async {
+    test('UT56 Preserve computed distance in returned nearby store model', () async {
       final TestableStoreLocationService service = TestableStoreLocationService(
         stores: <NearbyStoreModel>[
           store(
